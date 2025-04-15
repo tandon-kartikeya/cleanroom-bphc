@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow users to read their own booking data
+    match /bookings/{bookingId} {
+      // Admin can read and write all bookings
+      allow read, write: if request.auth != null && request.auth.token.email.matches('.*@hyderabad.bits-pilani.ac.in');
+      
+      // Students can read their own bookings
+      allow read: if request.auth != null && 
+                  request.auth.token.email == resource.data.studentEmail;
+      
+      // Students can create bookings
+      allow create: if request.auth != null && 
+                   request.auth.token.email.matches('.*@hyderabad.bits-pilani.ac.in') &&
+                   request.resource.data.studentEmail == request.auth.token.email;
+    }
+  }
+}

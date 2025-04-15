@@ -1,720 +1,840 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { 
   Container, 
   Typography, 
-  TextField, 
-  Button, 
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem, 
-  Grid, 
-  Box, 
-  Paper, 
+  Box,
+  Tabs,
+  Tab,
+  Button,
+  Paper,
   Stepper,
   Step,
   StepLabel,
-  Card,
-  CardContent,
-  CardActions,
-  Alert,
-  Divider,
-  Stack,
+  Grid,
+  TextField,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
   Chip,
-  FormHelperText,
+  TableContainer,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
   useTheme,
-  useMediaQuery,
-  Fade
+  Divider,
+  Alert,
+  Snackbar,
+  IconButton,
+  CircularProgress
 } from '@mui/material';
 import { 
-  Today as TodayIcon, 
-  AccessTime as TimeIcon, 
-  Science as ScienceIcon, 
-  School as SchoolIcon,
-  Description as DescriptionIcon,
-  Check as CheckIcon,
-  BookmarkAdded as BookmarkIcon,
-  ArrowBack as ArrowBackIcon
+  Add as AddIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Schedule as ScheduleIcon,
+  CalendarToday as CalendarIcon,
+  AccountCircle as ProfileIcon
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { format, parseISO } from 'date-fns';
 import { BookingContext } from '../App';
+import { AuthContext } from '../context/AuthContext';
+import { getStudentBookings } from '../services/BookingService';
+import { useNavigate } from 'react-router-dom';
+
+// Data for form
+const equipmentOptions = [
+  { value: '1', label: 'Electron Microscope' },
+  { value: '2', label: 'Spin Coater' },
+  { value: '3', label: 'Plasma Etcher' },
+  { value: '4', label: 'Thermal Evaporator' },
+  { value: '5', label: 'Optical Microscope' }
+];
+
+const timeSlotOptions = [
+  { value: '8:00', label: '8:00 AM - 10:00 AM' },
+  { value: '10:00', label: '10:00 AM - 12:00 PM' },
+  { value: '12:00', label: '12:00 PM - 2:00 PM' },
+  { value: '14:00', label: '2:00 PM - 4:00 PM' },
+  { value: '16:00', label: '4:00 PM - 6:00 PM' }
+];
+
+const facultyOptions = [
+  { value: 'faculty1', label: 'Faculty 1', email: 'f20211878@hyderabad.bits-pilani.ac.in' },
+  { value: 'faculty2', label: 'Faculty 2', email: 'f20213138@hyderabad.bits-pilani.ac.in' },
+  { value: 'faculty3', label: 'Faculty 3', email: 'f20210485@hyderabad.bits-pilani.ac.in' },
+  { value: 'faculty4', label: 'Faculty 4', email: '' },
+  { value: 'faculty5', label: 'Faculty 5', email: '' }
+];
 
 const Student = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { addBooking } = useContext(BookingContext);
   const navigate = useNavigate();
+  const theme = useTheme();
+  const { currentUser } = useContext(AuthContext);
+  const { addBooking, bookings, loading, error } = useContext(BookingContext);
+  const [studentBookings, setStudentBookings] = useState([]);
+  const [loadingStudentBookings, setLoadingStudentBookings] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
+  
+  // State for booking form
   const [activeStep, setActiveStep] = useState(0);
-  const steps = ['Personal Information', 'Booking Details', 'Review & Submit'];
-
-  // Form state
-  const [name, setName] = useState('');
-  const [studentId, setStudentId] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [faculty, setFaculty] = useState('');
-  const [date, setDate] = useState('');
-  const [timeSlot, setTimeSlot] = useState('');
-  const [equipment, setEquipment] = useState('');
-  const [description, setDescription] = useState('');
+  const [formData, setFormData] = useState({
+    equipment: '',
+    faculty: '',
+    date: null,
+    timeSlot: '',
+    description: ''
+  });
+  const [formErrors, setFormErrors] = useState({});
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
   
-  // Validation state
-  const [errors, setErrors] = useState({});
-  
-  // Reference number for successful booking
-  const [bookingRef, setBookingRef] = useState(null);
-
-  const facultyOptions = [
-    { value: 'electrical', label: 'Electrical Engineering' },
-    { value: 'mechanical', label: 'Mechanical Engineering' },
-    { value: 'chemical', label: 'Chemical Engineering' },
-    { value: 'computer_science', label: 'Computer Science' },
-    { value: 'physics', label: 'Physics' },
-    { value: 'chemistry', label: 'Chemistry' }
-  ];
-
-  const timeSlotOptions = [
-    { value: '8:00', label: '8:00 AM - 10:00 AM' },
-    { value: '10:00', label: '10:00 AM - 12:00 PM' },
-    { value: '12:00', label: '12:00 PM - 2:00 PM' },
-    { value: '2:00', label: '2:00 PM - 4:00 PM' },
-    { value: '4:00', label: '4:00 PM - 6:00 PM' }
-  ];
-
-  const equipmentOptions = [
-    { value: 'equipment_1', label: 'Equipment #1' },
-    { value: 'equipment_2', label: 'Equipment #2' },
-    { value: 'equipment_3', label: 'Equipment #3' },
-    { value: 'equipment_4', label: 'Equipment #4' },
-    { value: 'equipment_5', label: 'Equipment #5' },
-    { value: 'none', label: 'None (General Access)' }
-  ];
-
-  const validateStep = (step) => {
-    let newErrors = {};
-    let isValid = true;
-
-    if (step === 0) {
-      if (!name.trim()) {
-        newErrors.name = 'Name is required';
-        isValid = false;
-      }
-      if (!studentId.trim()) {
-        newErrors.studentId = 'Student ID is required';
-        isValid = false;
-      }
-      if (!email.trim()) {
-        newErrors.email = 'Email is required';
-        isValid = false;
-      } else if (!/\S+@\S+\.\S+/.test(email)) {
-        newErrors.email = 'Email is invalid';
-        isValid = false;
-      }
-      if (!phone.trim()) {
-        newErrors.phone = 'Phone number is required';
-        isValid = false;
-      } else if (!/^\d{10}$/.test(phone.replace(/\D/g, ''))) {
-        newErrors.phone = 'Phone number should be 10 digits';
-        isValid = false;
-      }
-    } else if (step === 1) {
-      if (!faculty) {
-        newErrors.faculty = 'Faculty is required';
-        isValid = false;
-      }
-      if (!date) {
-        newErrors.date = 'Date is required';
-        isValid = false;
-      } else {
-        // Validate that the date is not in the past
-        const selectedDate = new Date(date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        if (selectedDate < today) {
-          newErrors.date = 'Date cannot be in the past';
-          isValid = false;
-        }
-      }
-      if (!timeSlot) {
-        newErrors.timeSlot = 'Time slot is required';
-        isValid = false;
-      }
-      if (!equipment) {
-        newErrors.equipment = 'Equipment selection is required';
-        isValid = false;
-      }
+  // Populate student info from Google Auth
+  useEffect(() => {
+    if (currentUser) {
+      // Nothing needed here, as we're using currentUser directly in the component
     }
+  }, [currentUser]);
 
-    setErrors(newErrors);
-    return isValid;
-  };
-
-  const handleNext = () => {
-    if (validateStep(activeStep)) {
-      setActiveStep((prevActiveStep) => prevActiveStep + 1);
-    }
-  };
-
-  const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
-  };
-
-  const handleSubmit = () => {
-    const bookingData = {
-      name,
-      studentId, 
-      email, 
-      phone, 
-      faculty,
-      date,
-      timeSlot, 
-      equipment, 
-      description
+  // Fetch student-specific bookings
+  useEffect(() => {
+    const fetchStudentBookings = async () => {
+      if (!currentUser || !currentUser.email) return;
+      
+      try {
+        setLoadingStudentBookings(true);
+        const fetchedBookings = await getStudentBookings(currentUser.email);
+        console.log("Fetched student bookings:", fetchedBookings);
+        setStudentBookings(fetchedBookings);
+      } catch (err) {
+        console.error('Error fetching student bookings:', err);
+        setFormErrors('Failed to load your bookings. Please try again later.');
+      } finally {
+        setLoadingStudentBookings(false);
+      }
     };
     
-    const newBooking = addBooking(bookingData);
-    setBookingRef(newBooking);
+    fetchStudentBookings();
+  }, [currentUser]);
+
+  // Create a function to refresh bookings
+  const refreshBookings = async () => {
+    if (!currentUser || !currentUser.email) return;
+    
+    try {
+      setLoadingStudentBookings(true);
+      const fetchedBookings = await getStudentBookings(currentUser.email);
+      console.log("Refreshed student bookings:", fetchedBookings);
+      setStudentBookings(fetchedBookings);
+    } catch (err) {
+      console.error('Error refreshing student bookings:', err);
+    } finally {
+      setLoadingStudentBookings(false);
+    }
   };
 
-  const resetForm = () => {
-    setName('');
-    setStudentId('');
-    setEmail('');
-    setPhone('');
-    setFaculty('');
-    setDate('');
-    setTimeSlot('');
-    setEquipment('');
-    setDescription('');
-    setErrors({});
-    setActiveStep(0);
-    setBookingRef(null);
+  // Handle tab change
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
   };
-
-  // Format date for display
-  const formatDate = (date) => {
-    if (!date) return '';
-    return new Date(date).toLocaleDateString('en-US', { 
-      weekday: 'long',
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+  
+  // Handle form field changes
+  const handleFormChange = (field, value) => {
+    setFormData({
+      ...formData,
+      [field]: value
     });
+    
+    // Clear error for the field
+    if (formErrors[field]) {
+      setFormErrors({
+        ...formErrors,
+        [field]: null
+      });
+    }
+  };
+  
+  // Validate form step
+  const validateStep = () => {
+    const errors = {};
+    
+    switch (activeStep) {
+      case 0: // Equipment selection
+        if (!formData.equipment) {
+          errors.equipment = 'Please select an equipment';
+        }
+        if (!formData.faculty) {
+          errors.faculty = 'Please select a faculty';
+        }
+        break;
+      case 1: // Date and time
+        if (!formData.date) {
+          errors.date = 'Please select a date';
+        }
+        if (!formData.timeSlot) {
+          errors.timeSlot = 'Please select a time slot';
+        }
+        break;
+      case 2: // Description
+        if (!formData.description) {
+          errors.description = 'Please provide a description';
+        } else if (formData.description.length < 10) {
+          errors.description = 'Description should be at least 10 characters';
+        }
+        break;
+      default:
+        break;
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+  
+  // Handle next step
+  const handleNext = () => {
+    if (validateStep()) {
+      setActiveStep(prevStep => prevStep + 1);
+    }
+  };
+  
+  // Handle back step
+  const handleBack = () => {
+    setActiveStep(prevStep => prevStep - 1);
+  };
+  
+  // Handle form submission
+  const handleSubmit = async () => {
+    if (validateStep() && currentUser) {
+      try {
+        setFormLoading(true);
+        
+        // Extract BITS student ID from email
+        let bitsStudentId = '';
+        if (currentUser.email) {
+          // Extract student ID from email (e.g., f20190001@hyderabad.bits-pilani.ac.in)
+          const emailPrefix = currentUser.email.split('@')[0];
+          if (emailPrefix && emailPrefix.length > 0) {
+            bitsStudentId = emailPrefix.toUpperCase();
+          }
+        }
+        
+        // Add student information to the booking
+        const bookingWithStudentInfo = {
+          name: currentUser.displayName || 'Unknown User',
+          studentId: bitsStudentId || currentUser.uid, // Use BITS ID if available, fallback to UID
+          studentEmail: currentUser.email, // Important: explicitly set studentEmail for filtering
+          facultyEmail: facultyOptions.find(faculty => faculty.value === formData.faculty)?.email,
+          ...formData,
+          date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '',
+        };
+        
+        console.log("Creating booking with data:", bookingWithStudentInfo);
+        
+        // Create the booking
+        await addBooking(bookingWithStudentInfo);
+        
+        // Reset form
+        setFormData({
+          equipment: '',
+          date: '',
+          timeSlot: '',
+          faculty: '',
+          description: ''
+        });
+        setSelectedDate(null);
+        setActiveStep(0);
+        
+        // Show success
+        setSuccessMessage('Booking submitted successfully!');
+        
+        // Refresh the bookings list to show the new booking
+        await refreshBookings();
+        
+      } catch (error) {
+        console.error('Error submitting booking:', error);
+        setFormErrors('Failed to submit booking. Please try again.');
+      } finally {
+        setFormLoading(false);
+      }
+    }
+  };
+  
+  // Handle close success message
+  const handleCloseSuccessMessage = () => {
+    setSuccessMessage(null);
+  };
+  
+  // Format date correctly
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    try {
+      // Handle if dateStr is a Firestore timestamp object
+      if (dateStr && typeof dateStr === 'object' && dateStr.seconds) {
+        return format(new Date(dateStr.seconds * 1000), 'MMM dd, yyyy');
+      }
+      // Handle regular date strings
+      return format(new Date(dateStr), 'MMM dd, yyyy');
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return 'N/A';
+    }
   };
 
-  // Get label for dropdown values
-  const getFacultyLabel = (value) => {
-    const option = facultyOptions.find(opt => opt.value === value);
-    return option ? option.label : value;
+  // Get equipment name by value
+  const getEquipmentName = (value) => {
+    const equipment = equipmentOptions.find(eq => eq.value === value);
+    return equipment ? equipment.label : 'Unknown Equipment';
   };
 
+  // Get time slot label by value
   const getTimeSlotLabel = (value) => {
-    const option = timeSlotOptions.find(opt => opt.value === value);
-    return option ? option.label : value;
+    const timeSlot = timeSlotOptions.find(ts => ts.value === value);
+    return timeSlot ? timeSlot.label : value;
   };
 
-  const getEquipmentLabel = (value) => {
-    const option = equipmentOptions.find(opt => opt.value === value);
-    return option ? option.label : value;
+  // Get status chip color based on status
+  const getStatusChipColor = (status) => {
+    switch (status) {
+      case 'approved': return 'success';
+      case 'rejected': return 'error';
+      default: return 'warning';
+    }
   };
-
+  
+  // Render status chip
+  const renderStatusChip = (status) => {
+    switch (status) {
+      case 'pending':
+        return <Chip 
+          icon={<ScheduleIcon />} 
+          label="Pending" 
+          color="warning" 
+          size="small" 
+        />;
+      case 'approved':
+        return <Chip 
+          icon={<CheckCircleIcon />} 
+          label="Approved" 
+          color="success" 
+          size="small" 
+        />;
+      case 'rejected':
+        return <Chip 
+          icon={<CancelIcon />} 
+          label="Rejected" 
+          color="error" 
+          size="small" 
+        />;
+      default:
+        return <Chip label={status} size="small" />;
+    }
+  };
+  
+  // Render bookings table
+  const renderBookingsTable = (bookings) => {
+    return (
+      <TableContainer>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Booking ID</TableCell>
+              <TableCell>Equipment</TableCell>
+              <TableCell>Date</TableCell>
+              <TableCell>Time Slot</TableCell>
+              <TableCell>Status</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {bookings.length > 0 ? (
+              bookings.map((booking) => (
+                <TableRow key={booking.id}>
+                  <TableCell>{booking.id}</TableCell>
+                  <TableCell>
+                    {equipmentOptions.find(eq => eq.value === booking.equipment)?.label || booking.equipment}
+                  </TableCell>
+                  <TableCell>{formatDate(booking.date)}</TableCell>
+                  <TableCell>
+                    {timeSlotOptions.find(ts => ts.value === booking.timeSlot)?.label || booking.timeSlot}
+                  </TableCell>
+                  <TableCell>{renderStatusChip(booking.status)}</TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  No bookings found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
+  };
+  
+  // Render step content
   const renderStepContent = (step) => {
     switch (step) {
       case 0:
         return (
-          <Card elevation={3} sx={{ borderRadius: 3, overflow: 'visible' }}>
-            <CardContent sx={{ p: 4 }}>
-              <Typography variant="h5" component="h2" color="primary" 
-                sx={{ mb: 3, fontWeight: 600, position: 'relative',
-                  '&:after': {
-                    content: '""',
-                    position: 'absolute',
-                    bottom: -8,
-                    left: 0,
-                    width: 50,
-                    height: 3,
-                    backgroundColor: theme.palette.primary.main,
-                    borderRadius: 2
-                  }
-                }}>
-                Personal Information
-              </Typography>
-              
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Full Name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    variant="outlined"
-                    error={!!errors.name}
-                    helperText={errors.name}
-                    sx={{ mb: 2 }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Student ID"
-                    value={studentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                    variant="outlined"
-                    error={!!errors.studentId}
-                    helperText={errors.studentId}
-                    sx={{ mb: 2 }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    variant="outlined"
-                    error={!!errors.email}
-                    helperText={errors.email}
-                    sx={{ mb: 2 }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Phone Number"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    variant="outlined"
-                    error={!!errors.phone}
-                    helperText={errors.phone}
-                    sx={{ mb: 2 }}
-                  />
-                </Grid>
-              </Grid>
-            </CardContent>
-            <CardActions sx={{ p: 3, pt: 0, justifyContent: 'flex-end' }}>
-              <Button 
-                variant="contained" 
-                color="primary" 
-                onClick={handleNext}
-                size="large"
+          <Box sx={{ py: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Select Equipment and Faculty
+            </Typography>
+            <FormControl fullWidth sx={{ mb: 3 }} error={Boolean(formErrors.equipment)}>
+              <InputLabel id="equipment-label">Equipment</InputLabel>
+              <Select
+                labelId="equipment-label"
+                value={formData.equipment}
+                onChange={(e) => handleFormChange('equipment', e.target.value)}
+                label="Equipment"
               >
-                Next
-              </Button>
-            </CardActions>
-          </Card>
+                {equipmentOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+              {formErrors.equipment && (
+                <Typography color="error" variant="caption">
+                  {formErrors.equipment}
+                </Typography>
+              )}
+            </FormControl>
+            
+            <FormControl fullWidth sx={{ mb: 2 }} error={Boolean(formErrors.faculty)}>
+              <InputLabel id="faculty-label">Faculty</InputLabel>
+              <Select
+                labelId="faculty-label"
+                value={formData.faculty}
+                onChange={(e) => handleFormChange('faculty', e.target.value)}
+                label="Faculty"
+              >
+                {facultyOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </Select>
+              {formErrors.faculty && (
+                <Typography color="error" variant="caption">
+                  {formErrors.faculty}
+                </Typography>
+              )}
+            </FormControl>
+          </Box>
         );
       case 1:
         return (
-          <Card elevation={3} sx={{ borderRadius: 3, overflow: 'visible' }}>
-            <CardContent sx={{ p: 4 }}>
-              <Typography variant="h5" component="h2" color="primary" 
-                sx={{ mb: 3, fontWeight: 600, position: 'relative',
-                  '&:after': {
-                    content: '""',
-                    position: 'absolute',
-                    bottom: -8,
-                    left: 0,
-                    width: 50,
-                    height: 3,
-                    backgroundColor: theme.palette.primary.main,
-                    borderRadius: 2
-                  }
-                }}>
-                Booking Details
-              </Typography>
-              
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth error={!!errors.faculty} sx={{ mb: 2 }}>
-                    <InputLabel id="faculty-label">Faculty</InputLabel>
-                    <Select
-                      labelId="faculty-label"
-                      value={faculty}
-                      onChange={(e) => setFaculty(e.target.value)}
-                      label="Faculty"
-                    >
-                      {facultyOptions.map((option) => (
-                        <MenuItem key={option.value} value={option.value}>
-                          {option.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.faculty && <FormHelperText>{errors.faculty}</FormHelperText>}
-                  </FormControl>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth error={!!errors.date}>
-                    <TextField
-                      label="Date"
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      InputLabelProps={{
-                        shrink: true,
-                      }}
-                      fullWidth
-                      sx={{ mb: 2 }}
-                      InputProps={{
-                        startAdornment: (
-                          <TodayIcon color="primary" sx={{ mr: 1 }} />
-                        ),
-                      }}
-                      error={!!errors.date}
-                      helperText={errors.date}
-                    />
-                  </FormControl>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth error={!!errors.timeSlot} sx={{ mb: 2 }}>
-                    <InputLabel id="time-slot-label">Time Slot</InputLabel>
-                    <Select
-                      labelId="time-slot-label"
-                      value={timeSlot}
-                      onChange={(e) => setTimeSlot(e.target.value)}
-                      label="Time Slot"
-                    >
-                      {timeSlotOptions.map((option) => (
-                        <MenuItem key={option.value} value={option.value}>
-                          {option.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.timeSlot && <FormHelperText>{errors.timeSlot}</FormHelperText>}
-                  </FormControl>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth error={!!errors.equipment} sx={{ mb: 2 }}>
-                    <InputLabel id="equipment-label">Equipment</InputLabel>
-                    <Select
-                      labelId="equipment-label"
-                      value={equipment}
-                      onChange={(e) => setEquipment(e.target.value)}
-                      label="Equipment"
-                    >
-                      {equipmentOptions.map((option) => (
-                        <MenuItem key={option.value} value={option.value}>
-                          {option.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.equipment && <FormHelperText>{errors.equipment}</FormHelperText>}
-                  </FormControl>
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Description (Optional)"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    variant="outlined"
-                    multiline
-                    rows={4}
-                    placeholder="Please provide any additional details about your research or specific requirements."
-                    sx={{ mb: 2 }}
+          <Box sx={{ py: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Select Date and Time
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <DatePicker
+                    label="Date"
+                    value={selectedDate}
+                    onChange={(date) => {
+                      setSelectedDate(date);
+                      handleFormChange('date', date);
+                    }}
+                    renderInput={(params) => (
+                      <TextField 
+                        {...params} 
+                        fullWidth 
+                        error={Boolean(formErrors.date)}
+                        helperText={formErrors.date}
+                      />
+                    )}
+                    minDate={new Date()}
                   />
-                </Grid>
+                </LocalizationProvider>
               </Grid>
-            </CardContent>
-            <CardActions sx={{ p: 3, pt: 0, justifyContent: 'space-between' }}>
-              <Button onClick={handleBack} size="large" startIcon={<ArrowBackIcon />}>
-                Back
-              </Button>
-              <Button 
-                variant="contained" 
-                color="primary" 
-                onClick={handleNext}
-                size="large"
-              >
-                Review
-              </Button>
-            </CardActions>
-          </Card>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth error={Boolean(formErrors.timeSlot)}>
+                  <InputLabel id="time-slot-label">Time Slot</InputLabel>
+                  <Select
+                    labelId="time-slot-label"
+                    value={formData.timeSlot}
+                    onChange={(e) => handleFormChange('timeSlot', e.target.value)}
+                    label="Time Slot"
+                  >
+                    {timeSlotOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {formErrors.timeSlot && (
+                    <Typography color="error" variant="caption">
+                      {formErrors.timeSlot}
+                    </Typography>
+                  )}
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
         );
       case 2:
         return (
-          <Card elevation={3} sx={{ borderRadius: 3 }}>
-            <CardContent sx={{ p: 4 }}>
-              <Typography variant="h5" component="h2" color="primary" 
-                sx={{ mb: 3, fontWeight: 600, position: 'relative',
-                  '&:after': {
-                    content: '""',
-                    position: 'absolute',
-                    bottom: -8,
-                    left: 0,
-                    width: 50,
-                    height: 3,
-                    backgroundColor: theme.palette.primary.main,
-                    borderRadius: 2
-                  }
-                }}>
-                Review Your Booking
-              </Typography>
-              
-              <Box sx={{ 
-                backgroundColor: 'rgba(0, 102, 179, 0.03)', 
-                borderRadius: 2, 
-                p: 3, 
-                mb: 3 
-              }}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <Stack spacing={3}>
-                      <Box>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Name
-                        </Typography>
-                        <Typography variant="body1" fontWeight={500}>
-                          {name}
-                        </Typography>
-                      </Box>
-                      
-                      <Box>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Student ID
-                        </Typography>
-                        <Typography variant="body1" fontWeight={500}>
-                          {studentId}
-                        </Typography>
-                      </Box>
-                      
-                      <Box>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Email
-                        </Typography>
-                        <Typography variant="body1" fontWeight={500}>
-                          {email}
-                        </Typography>
-                      </Box>
-                      
-                      <Box>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Phone
-                        </Typography>
-                        <Typography variant="body1" fontWeight={500}>
-                          {phone}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <Stack spacing={3}>
-                      <Box>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Faculty
-                        </Typography>
-                        <Typography variant="body1" fontWeight={500}>
-                          {getFacultyLabel(faculty)}
-                        </Typography>
-                      </Box>
-                      
-                      <Box>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Date
-                        </Typography>
-                        <Typography variant="body1" fontWeight={500}>
-                          {formatDate(date)}
-                        </Typography>
-                      </Box>
-                      
-                      <Box>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Time Slot
-                        </Typography>
-                        <Typography variant="body1" fontWeight={500}>
-                          {getTimeSlotLabel(timeSlot)}
-                        </Typography>
-                      </Box>
-                      
-                      <Box>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Equipment
-                        </Typography>
-                        <Typography variant="body1" fontWeight={500}>
-                          {getEquipmentLabel(equipment)}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Grid>
-                  
-                  {description && (
-                    <Grid item xs={12}>
-                      <Box sx={{ mt: 2 }}>
-                        <Typography variant="subtitle2" color="text.secondary">
-                          Description
-                        </Typography>
-                        <Typography variant="body1" sx={{ mt: 1 }}>
-                          {description}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  )}
-                </Grid>
-              </Box>
-              
-              <Alert severity="info" sx={{ mb: 3 }}>
-                Please review your booking details carefully. Once submitted, you will receive a reference ID.
-                The booking will be pending until approved by an administrator.
-              </Alert>
-            </CardContent>
-            <CardActions sx={{ p: 3, pt: 0, justifyContent: 'space-between' }}>
-              <Button 
-                onClick={handleBack}
-                size="large"
-                startIcon={<ArrowBackIcon />}
-              >
-                Back
-              </Button>
-              <Button 
-                variant="contained" 
-                color="primary"
-                onClick={handleSubmit}
-                size="large"
-                startIcon={<BookmarkIcon />}
-              >
-                Submit Booking
-              </Button>
-            </CardActions>
-          </Card>
+          <Box sx={{ py: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Provide Description
+            </Typography>
+            <TextField
+              label="Description of work"
+              multiline
+              rows={4}
+              value={formData.description}
+              onChange={(e) => handleFormChange('description', e.target.value)}
+              fullWidth
+              placeholder="Describe the work you plan to do with this equipment..."
+              error={Boolean(formErrors.description)}
+              helperText={formErrors.description}
+            />
+          </Box>
+        );
+      case 3:
+        return (
+          <Box sx={{ py: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Review Your Booking
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Equipment
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  {equipmentOptions.find(eq => eq.value === formData.equipment)?.label}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Faculty
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  {facultyOptions.find(eq => eq.value === formData.faculty)?.label}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Date
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  {formData.date ? formatDate(formData.date) : ''}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Time Slot
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  {timeSlotOptions.find(ts => ts.value === formData.timeSlot)?.label}
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Description
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  {formData.description}
+                </Typography>
+              </Grid>
+            </Grid>
+          </Box>
         );
       default:
         return null;
     }
   };
-
-  const renderConfirmation = () => {
+  
+  if (!currentUser) {
     return (
-      <Fade in={true}>
-        <Card 
-          elevation={4} 
-          sx={{ 
-            borderRadius: 3,
-            border: `1px solid ${theme.palette.success.light}`,
-            bgcolor: 'rgba(46, 125, 50, 0.03)'
-          }}
-        >
-          <CardContent sx={{ p: 4, textAlign: 'center' }}>
-            <Box sx={{ 
-              width: 80, 
-              height: 80, 
-              borderRadius: '50%', 
-              bgcolor: 'success.light', 
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 24px auto',
-            }}>
-              <CheckIcon sx={{ fontSize: 40, color: '#fff' }} />
-            </Box>
-            
-            <Typography variant="h4" component="h2" color="success.main" gutterBottom sx={{ fontWeight: 600 }}>
-              Booking Successful!
-            </Typography>
-            
-            <Typography variant="body1" paragraph>
-              Your booking request has been submitted successfully. Please save your reference ID for tracking.
-            </Typography>
-            
-            <Box 
-              sx={{ 
-                my: 4, 
-                py: 2, 
-                px: 4, 
-                border: `2px dashed ${theme.palette.primary.main}`,
-                borderRadius: 2,
-                display: 'inline-block',
-                bgcolor: 'rgba(0, 102, 179, 0.05)'
-              }}
-            >
-              <Typography variant="h5" component="p" color="primary" sx={{ fontWeight: 600, letterSpacing: 1 }}>
-                {bookingRef.id}
-              </Typography>
-            </Box>
-            
-            <Alert severity="info" sx={{ mb: 3, mx: 'auto', maxWidth: 'sm', textAlign: 'left' }}>
-              Your booking is currently <strong>pending</strong> approval. You will be notified once it's approved.
-            </Alert>
-          </CardContent>
-          <CardActions sx={{ p: 3, justifyContent: 'center' }}>
-            <Button 
-              variant="outlined" 
-              color="primary" 
-              onClick={() => navigate('/')}
-              sx={{ mr: 2 }}
-            >
-              Return Home
-            </Button>
-            <Button 
-              variant="contained" 
-              color="primary"
-              onClick={resetForm}
-            >
-              New Booking
-            </Button>
-          </CardActions>
-        </Card>
-      </Fade>
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Paper elevation={3} sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="h6" color="error" gutterBottom>
+            You must be logged in as a student to view this page
+          </Typography>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={() => navigate('/student/login')}
+            sx={{ mt: 2 }}
+          >
+            Student Login
+          </Button>
+        </Paper>
+      </Container>
     );
-  };
-
+  }
+  
   return (
-    <Container maxWidth="md" sx={{ py: 5 }}>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Header with profile button */}
       <Box 
         sx={{ 
-          mb: 4, 
           display: 'flex', 
-          flexDirection: 'column',
-          alignItems: 'center'
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: 4
         }}
       >
         <Typography 
-          variant="h3" 
-          component="h1" 
-          gutterBottom 
+          variant="h4" 
+          component="h1"
           sx={{ 
             fontWeight: 700,
-            color: theme.palette.primary.main,
-            textAlign: 'center'
+            color: theme.palette.primary.main
           }}
         >
-          Cleanroom Booking
+          Student Dashboard
         </Typography>
         
-        <Typography 
-          variant="h6" 
-          color="textSecondary" 
-          sx={{ 
-            mb: 4,
-            textAlign: 'center',
-            maxWidth: 'sm'
+        <Button
+          variant="outlined"
+          color="primary"
+          startIcon={<ProfileIcon />}
+          onClick={() => navigate('/profile/student/student1')}
+        >
+          Profile
+        </Button>
+      </Box>
+
+      {/* Success message */}
+      <Snackbar
+        open={Boolean(successMessage)}
+        autoHideDuration={6000}
+        onClose={handleCloseSuccessMessage}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={handleCloseSuccessMessage}
+          severity="success"
+          sx={{ width: '100%' }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
+      
+      {/* Tabs */}
+      <Paper 
+        elevation={2} 
+        sx={{ 
+          mb: 4, 
+          borderRadius: 2,
+          overflow: 'hidden' 
+        }}
+      >
+        <Tabs 
+          value={tabValue} 
+          onChange={handleTabChange}
+          variant="fullWidth"
+          sx={{
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'rgba(0, 102, 179, 0.03)'
           }}
         >
-          Reserve your slot in the BITS Pilani Hyderabad Campus Cleanroom Laboratory
-        </Typography>
-      </Box>
-      
-      {!bookingRef ? (
-        <>
-          <Box sx={{ mb: 4 }}>
-            <Stepper activeStep={activeStep} alternativeLabel>
-              {steps.map((label) => (
-                <Step key={label}>
-                  <StepLabel>{label}</StepLabel>
-                </Step>
-              ))}
-            </Stepper>
-          </Box>
+          <Tab 
+            label="My Bookings" 
+            icon={<CalendarIcon />} 
+            iconPosition="start"
+          />
+          <Tab 
+            label="New Booking" 
+            icon={<AddIcon />} 
+            iconPosition="start"
+          />
+        </Tabs>
+        
+        {/* Tab content */}
+        <Box sx={{ p: 3 }}>
+          {/* My Bookings Tab */}
+          {tabValue === 0 && (
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                Pending Requests
+              </Typography>
+              {renderBookingsTable(studentBookings.filter(booking => booking.status === 'pending'))}
+              
+              <Divider sx={{ my: 4 }} />
+              
+              <Typography variant="h6" gutterBottom>
+                Approved Bookings
+              </Typography>
+              {renderBookingsTable(studentBookings.filter(booking => booking.status === 'approved'))}
+              
+              <Divider sx={{ my: 4 }} />
+              
+              <Typography variant="h6" gutterBottom>
+                Rejected Requests
+              </Typography>
+              {renderBookingsTable(studentBookings.filter(booking => booking.status === 'rejected'))}
+            </Box>
+          )}
           
-          {renderStepContent(activeStep)}
-        </>
-      ) : (
-        renderConfirmation()
-      )}
+          {/* New Booking Tab */}
+          {tabValue === 1 && (
+            <Box>
+              <Typography 
+                variant="h5" 
+                gutterBottom
+                sx={{
+                  fontWeight: 600,
+                  mb: 3
+                }}
+              >
+                Book Cleanroom Equipment
+              </Typography>
+              
+              {/* Stepper */}
+              <Stepper 
+                activeStep={activeStep} 
+                sx={{ 
+                  mb: 4,
+                  py: 2
+                }}
+              >
+                <Step>
+                  <StepLabel>Equipment</StepLabel>
+                </Step>
+                <Step>
+                  <StepLabel>Date & Time</StepLabel>
+                </Step>
+                <Step>
+                  <StepLabel>Description</StepLabel>
+                </Step>
+                <Step>
+                  <StepLabel>Confirm</StepLabel>
+                </Step>
+              </Stepper>
+              
+              {/* Step content */}
+              <Paper 
+                elevation={0} 
+                variant="outlined"
+                sx={{ 
+                  p: 3, 
+                  borderRadius: 2,
+                  borderColor: 'divider'
+                }}
+              >
+                {renderStepContent(activeStep)}
+                
+                {/* Navigation buttons */}
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between',
+                  mt: 3
+                }}>
+                  <Button
+                    disabled={activeStep === 0}
+                    onClick={handleBack}
+                    variant="outlined"
+                  >
+                    Back
+                  </Button>
+                  
+                  {activeStep === 3 ? (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleSubmit}
+                      disabled={formLoading}
+                    >
+                      {formLoading ? 'Submitting...' : 'Submit Booking'}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleNext}
+                    >
+                      Next
+                    </Button>
+                  )}
+                </Box>
+              </Paper>
+            </Box>
+          )}
+        </Box>
+      </Paper>
+      
+      {/* Student's Booking History */}
+      <Box sx={{ mt: 6 }}>
+        <Typography variant="h5" gutterBottom>
+          Your Booking History
+        </Typography>
+        
+        {loadingStudentBookings ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : studentBookings.length === 0 ? (
+          <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'background.default' }}>
+            <Typography variant="body1" color="text.secondary">
+              You don't have any bookings yet
+            </Typography>
+          </Paper>
+        ) : (
+          <TableContainer component={Paper} sx={{ mt: 2 }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Booking ID</TableCell>
+                  <TableCell>Equipment</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Time Slot</TableCell>
+                  <TableCell>Faculty</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Feedback</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {studentBookings.map((booking) => (
+                  <TableRow key={booking.id}>
+                    <TableCell>{booking.id}</TableCell>
+                    <TableCell>
+                      {booking.equipment && booking.equipment.label ? 
+                        booking.equipment.label : 
+                        getEquipmentName(booking.equipment?.value || booking.equipment)}
+                    </TableCell>
+                    <TableCell>{formatDate(booking.date)}</TableCell>
+                    <TableCell>
+                      {booking.timeSlot && booking.timeSlot.label ? 
+                        booking.timeSlot.label : 
+                        getTimeSlotLabel(booking.timeSlot?.value || booking.timeSlot)}
+                    </TableCell>
+                    <TableCell>
+                      {booking.faculty && facultyOptions.find(f => f.value === booking.faculty)?.label || 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={booking.status.charAt(0).toUpperCase() + booking.status.slice(1)} 
+                        color={getStatusChipColor(booking.status)} 
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 200, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                      {booking.status === 'approved' && booking.approvalNotes ? booking.approvalNotes : 
+                       booking.status === 'rejected' && booking.rejectionReason ? booking.rejectionReason : 
+                       'N/A'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Box>
     </Container>
   );
 };

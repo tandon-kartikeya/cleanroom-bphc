@@ -1,172 +1,27 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Header from './components/Header';
+
+// Import services
+import { createBooking, getAllBookings, updateBookingStatus as updateBookingStatusInDb } from './services/BookingService';
 
 // Import pages
 import Home from './pages/Home';
 import Student from './pages/Student';
 import Admin from './pages/Admin';
+import Faculty from './pages/Faculty';
+import Profile from './pages/Profile';
+import Login from './components/Login';
+import AdminLogin from './pages/AdminLogin';
+import ProtectedRoute from './components/ProtectedRoute';
+
+// Import Auth Provider
+import { AuthProvider } from './context/AuthContext';
 
 // Create BookingContext
 export const BookingContext = createContext();
-
-// Mock fixed approved and rejected bookings
-const generateFixedBookings = () => {
-  const approvedBookings = [
-    {
-      id: 'REQ-1001',
-      name: 'Ravi Kumar',
-      studentId: 'BT18ECE045',
-      email: 'ravi.kumar@pilani.bits-pilani.ac.in',
-      phone: '9876543210',
-      faculty: 'electrical',
-      date: '2025-03-15',
-      timeSlot: '8:00',
-      equipment: '1', 
-      description: 'Microelectronic circuit fabrication for final year project',
-      status: 'approved',
-      submittedAt: '2025-03-05T10:30:00Z'
-    },
-    {
-      id: 'REQ-1002',
-      name: 'Priya Singh',
-      studentId: 'BT19CHE032',
-      email: 'priya.singh@pilani.bits-pilani.ac.in',
-      phone: '9988776655',
-      faculty: 'chemical',
-      date: '2025-03-16',
-      timeSlot: '10:00',
-      equipment: '3',
-      description: 'Polymer coating development for corrosion resistance',
-      status: 'approved',
-      submittedAt: '2025-03-06T11:20:00Z'
-    },
-    {
-      id: 'REQ-1003',
-      name: 'Akash Patel',
-      studentId: 'BT17EEE028',
-      email: 'akash.patel@pilani.bits-pilani.ac.in',
-      phone: '9876123450',
-      faculty: 'electrical',
-      date: '2025-03-17',
-      timeSlot: '14:00',
-      equipment: '2',
-      description: 'MEMS sensor testing for robotics application',
-      status: 'approved',
-      submittedAt: '2025-03-07T09:15:00Z'
-    },
-    {
-      id: 'REQ-1004',
-      name: 'Neha Gupta',
-      studentId: 'BT18PHY015',
-      email: 'neha.gupta@pilani.bits-pilani.ac.in',
-      phone: '8877665544',
-      faculty: 'physics',
-      date: '2025-03-18',
-      timeSlot: '12:00',
-      equipment: '5',
-      description: 'Quantum dot synthesis for optoelectronic device research',
-      status: 'approved',
-      submittedAt: '2025-03-08T14:45:00Z'
-    },
-    {
-      id: 'REQ-1005',
-      name: 'Vikram Sharma',
-      studentId: 'BT19CSE078',
-      email: 'vikram.sharma@pilani.bits-pilani.ac.in',
-      phone: '7788994455',
-      faculty: 'computer_science',
-      date: '2025-03-19',
-      timeSlot: '15:00',
-      equipment: '4',
-      description: 'Microcontroller programming for IoT sensor network',
-      status: 'approved',
-      submittedAt: '2025-03-09T16:30:00Z'
-    }
-  ];
-
-  const rejectedBookings = [
-    {
-      id: 'REQ-2001',
-      name: 'Ananya Reddy',
-      studentId: 'BT17ECE056',
-      email: 'ananya.reddy@pilani.bits-pilani.ac.in',
-      phone: '9865432109',
-      faculty: 'electrical',
-      date: '2025-03-20',
-      timeSlot: '8:00',
-      equipment: '1',
-      description: 'PCB design for wireless charging system',
-      status: 'rejected',
-      submittedAt: '2025-03-01T11:20:00Z',
-      rejectionReason: 'Equipment already booked for this time slot'
-    },
-    {
-      id: 'REQ-2002',
-      name: 'Rahul Verma',
-      studentId: 'BT18MEC042',
-      email: 'rahul.verma@pilani.bits-pilani.ac.in',
-      phone: '8899776655',
-      faculty: 'mechanical',
-      date: '2025-03-21',
-      timeSlot: '10:00',
-      equipment: '2',
-      description: 'MEMS actuator development for microfluidic applications',
-      status: 'rejected',
-      submittedAt: '2025-03-02T13:40:00Z',
-      rejectionReason: 'Insufficient detail provided about experiment safety protocols'
-    },
-    {
-      id: 'REQ-2003',
-      name: 'Sneha Joshi',
-      studentId: 'BT19CHE038',
-      email: 'sneha.joshi@pilani.bits-pilani.ac.in',
-      phone: '7766554433',
-      faculty: 'chemical',
-      date: '2025-03-22',
-      timeSlot: '12:00',
-      equipment: '3',
-      description: 'Plasma etching for semiconductor fabrication',
-      status: 'rejected',
-      submittedAt: '2025-03-03T09:50:00Z',
-      rejectionReason: 'Required material not available for specified date'
-    },
-    {
-      id: 'REQ-2004',
-      name: 'Arun Mehta',
-      studentId: 'BT17PHY025',
-      email: 'arun.mehta@pilani.bits-pilani.ac.in',
-      phone: '9988776611',
-      faculty: 'physics',
-      date: '2025-03-23',
-      timeSlot: '14:00',
-      equipment: '4',
-      description: 'Thin film deposition for solar cell research',
-      status: 'rejected',
-      submittedAt: '2025-03-04T15:10:00Z',
-      rejectionReason: 'Maintenance scheduled for requested equipment'
-    },
-    {
-      id: 'REQ-2005',
-      name: 'Karthik Raja',
-      studentId: 'BT18CSE066',
-      email: 'karthik.raja@pilani.bits-pilani.ac.in',
-      phone: '8877665522',
-      faculty: 'computer_science',
-      date: '2025-03-24',
-      timeSlot: '15:00',
-      equipment: '5',
-      description: 'Sensor calibration for embedded systems project',
-      status: 'rejected',
-      submittedAt: '2025-03-05T10:20:00Z',
-      rejectionReason: 'Faculty supervisor approval missing'
-    }
-  ];
-
-  return [...approvedBookings, ...rejectedBookings];
-};
 
 // Create theme
 const theme = createTheme({
@@ -462,66 +317,145 @@ const theme = createTheme({
 });
 
 function App() {
+  // Initialize with empty bookings array
   const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
+  // Function to fetch all bookings from Firestore - can be called manually to refresh
+  const fetchAllBookings = async () => {
+    try {
+      setLoading(true);
+      const fetchedBookings = await getAllBookings();
+      setBookings(fetchedBookings);
+      setError(null);
+      console.log('Bookings refreshed:', fetchedBookings.length, 'bookings loaded');
+      return fetchedBookings;
+    } catch (err) {
+      console.error('Error fetching bookings:', err);
+      setError('Failed to load bookings. Please try again later.');
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch all bookings from Firestore on component mount
   useEffect(() => {
-    // Initialize with fixed approved and rejected bookings
-    setBookings(generateFixedBookings());
+    fetchAllBookings();
+    // We've removed the auto-refresh interval to prevent Firebase permissions errors
   }, []);
   
-  const addBooking = (bookingData) => {
-    // Generate a reference ID
-    const id = `REQ-${1000 + Math.floor(Math.random() * 1000)}`;
-    
-    // Create a new booking with pending status
-    const newBooking = {
-      id,
-      ...bookingData,
-      status: 'pending',
-      submittedAt: new Date().toISOString()
-    };
-    
-    // Add to bookings state
-    setBookings(prevBookings => [...prevBookings, newBooking]);
-    
-    return newBooking;
+  const addBooking = async (bookingData) => {
+    try {
+      // Create booking in Firestore
+      const newBooking = await createBooking(bookingData);
+      
+      // Update local state
+      setBookings(prevBookings => [...prevBookings, newBooking]);
+      
+      return newBooking;
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      throw error;
+    }
   };
   
-  const updateBookingStatus = (id, newStatus, reason = '') => {
-    setBookings(prevBookings => 
-      prevBookings.map(booking => 
-        booking.id === id 
-          ? { 
-              ...booking, 
-              status: newStatus,
-              ...(newStatus === 'rejected' && { rejectionReason: reason }),
-              ...(newStatus === 'approved' && { approvalNotes: reason })
-            } 
-          : booking
-      )
-    );
+  const updateBookingStatus = async (docId, newStatus, reason = '', updatedBy = 'system') => {
+    try {
+      console.log('Updating booking status:', { docId, newStatus, reason, updatedBy });
+      
+      // Update directly in Firestore with the provided docId
+      const updatedBooking = await updateBookingStatusInDb(
+        docId, 
+        newStatus, 
+        reason,
+        updatedBy
+      );
+      
+      console.log('Updated booking from Firestore:', updatedBooking);
+      
+      // Update local state using the docId for matching
+      setBookings(prevBookings => {
+        // Try to find the booking in the current state to update it
+        const bookingExists = prevBookings.some(booking => booking.docId === docId);
+        
+        if (bookingExists) {
+          // If booking exists, update it
+          return prevBookings.map(booking => 
+            booking.docId === docId ? updatedBooking : booking
+          );
+        } else {
+          // If booking doesn't exist in our local state, add it
+          console.log('Booking was not in local state, adding it');
+          return [...prevBookings, updatedBooking];
+        }
+      });
+      
+      return updatedBooking;
+    } catch (error) {
+      console.error('Error updating booking status:', error);
+      throw error;
+    }
   };
   
   const bookingContextValue = {
     bookings,
+    loading,
+    error,
     addBooking,
-    updateBookingStatus
+    updateBookingStatus,
+    refreshBookings: fetchAllBookings
   };
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <BookingContext.Provider value={bookingContextValue}>
-        <Router>
-          <Header />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/student" element={<Student />} />
-            <Route path="/admin" element={<Admin />} />
-          </Routes>
-        </Router>
-      </BookingContext.Provider>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <BookingContext.Provider value={bookingContextValue}>
+          <Router>
+            <Header />
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/student/login" element={<Login userType="student" />} />
+              <Route path="/faculty/login" element={<Login userType="faculty" />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/student" element={
+                <ProtectedRoute>
+                  <Student />
+                </ProtectedRoute>
+              } />
+              <Route path="/faculty" element={
+                <ProtectedRoute>
+                  <Faculty />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin" element={
+                <ProtectedRoute>
+                  <Admin />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile/student/:id" element={
+                <ProtectedRoute>
+                  <Profile userType="student" />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile/faculty/:id" element={
+                <ProtectedRoute>
+                  <Profile userType="faculty" />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile/admin/:id" element={
+                <ProtectedRoute>
+                  <Profile userType="admin" />
+                </ProtectedRoute>
+              } />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Router>
+        </BookingContext.Provider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 

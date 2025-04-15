@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import {
   Box,
   Typography,
@@ -19,15 +19,20 @@ import {
   AccessTime as ClockIcon, 
   Science as ScienceIcon, 
   School as SchoolIcon,
-  ChevronRight as ChevronRightIcon
+  ChevronRight as ChevronRightIcon,
+  Person as PersonIcon,
+  SupervisorAccount as FacultyIcon,
+  AdminPanelSettings as AdminIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
 
 const Home = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isMedium = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
+  const { currentUser } = useContext(AuthContext);
 
   return (
     <Box sx={{ flexGrow: 1, py: 4 }}>
@@ -78,17 +83,28 @@ const Home = () => {
                 variant="contained" 
                 color="primary" 
                 size="large"
-                onClick={() => navigate('/student')}
-                endIcon={<ChevronRightIcon />}
+                onClick={() => navigate('/student/login')}
+                endIcon={<PersonIcon />}
               >
-                Student Access
+                Student Login
               </Button>
               
               <Button 
                 variant="outlined" 
                 color="primary"
                 size="large"
-                onClick={() => navigate('/admin')}
+                onClick={() => navigate('/faculty/login')}
+                endIcon={<FacultyIcon />}
+              >
+                Faculty Login
+              </Button>
+              
+              <Button 
+                variant="outlined" 
+                color="primary"
+                size="large"
+                onClick={() => navigate('/admin/login')}
+                endIcon={<AdminIcon />}
               >
                 Administrator Login
               </Button>
@@ -258,12 +274,12 @@ const Home = () => {
               </CardContent>
               <CardActions sx={{ px: 3, pb: 3 }}>
                 <Button 
-                  onClick={() => navigate('/student')} 
+                  onClick={() => navigate('/student/login')} 
                   color="primary" 
                   variant="contained"
                   endIcon={<ChevronRightIcon />}
                 >
-                  Book Now
+                  Student Booking
                 </Button>
               </CardActions>
             </Card>
